@@ -23,7 +23,7 @@ macro_rules! clone_value {
 pub fn render(
     scene: &Scene, filename: &str, width: i32, height: i32,
     num_sample_per_subpixel: i32, num_subpixel: i32,
-    num_thread: i32) -> i32 {
+    num_thread: i32) {
 
     // カメラ位置。
     let camera_position = Vec { x: 7.0, y: 3.0, z: 7.0 };
@@ -45,8 +45,8 @@ pub fn render(
     println!("{}x{} {} spp", width, height, num_sample_per_subpixel * (num_subpixel * num_subpixel));
 
     {
-        // let mut lock = io::stderr().lock();
-        // let mut buf = io::BufWriter::new();
+        // let mut lock = io::stderr();
+        // let mut buf = io::BufWriter::new(lock.lock());
         for y in 0..height {
             // writeln!(buf, "Rendering (y= {}, {} %) /r", y, 100.0 * y as f64 / (height - 1) as f64);
             println!("Rendering (y= {}, {} %) /r", y, 100.0 * y as f64 / (height - 1) as f64);
@@ -80,11 +80,9 @@ pub fn render(
                 }
             }
         }
+        eprintln!("");
     }
-    eprintln!("");
 
     // 出力
     save_ppm_file(filename, &image, width, height);
-
-    0
 }

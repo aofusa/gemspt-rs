@@ -371,10 +371,9 @@ pub fn intersect_scene<'a>(scene: &'a Scene, ray: &'a Ray) -> (Option<&'a SceneS
 
     // 線形探索
     for object in scene.iter() {
-        let mut tmp_hitpoint = Hitpoint::new();
-        if object.get_sphere().intersect(&ray, &mut tmp_hitpoint) {
-            if &tmp_hitpoint.distance < &hitpoint.distance {
-                hitpoint = tmp_hitpoint;
+        if let Some(hit) = object.get_sphere().intersect(&ray) {
+            if &hit.distance < &hitpoint.distance {
+                hitpoint = hit;
                 now_object = Some(object);
             }
         }

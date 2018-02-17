@@ -18,7 +18,7 @@ impl Sphere {
 
     // 入力のrayに対する交差点までの距離を得る。
     // 交差したらtrue,さもなくばfalseを返す。
-    pub fn intersect(&self, ray: &Ray, hitpoint: &mut Hitpoint) -> bool {
+    pub fn intersect(&self, ray: &Ray) -> Option<Hitpoint> {
         // 自己交差の判定用定数。
         const K_EPS: f64 = 1e-6_f64;
 
@@ -27,7 +27,7 @@ impl Sphere {
         let c: f64 = &b * &b - Vec::dot(&o_to_p, &o_to_p) + &self.radius_ * &self.radius_;
 
         if &c < &0.0_f64 {
-            return false
+            return None
         }
 
         let sqrt_c: f64 = c.sqrt();
@@ -36,8 +36,10 @@ impl Sphere {
 
         // 微小距離内だったら交差しないとする（自己交差を避けるため）。
         if &t1 < &K_EPS && &t2 < &K_EPS {
-            return false
+            return None
         }
+
+        let mut hitpoint = Hitpoint::new();
 
         // 交差するときは二点以上で交差する。（接する場合は一点）
         // 近い方を交差点とする。また、負値の場合はレイの逆方向で交差してるため交差していないとする。
@@ -50,7 +52,7 @@ impl Sphere {
         hitpoint.position = ray.org + &hitpoint.distance * ray.dir;
         hitpoint.normal = Vec::normalize(&hitpoint.position - &self.position_);
 
-        true
+        Some(hitpoint)
     }
 }
 

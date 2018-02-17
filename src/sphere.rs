@@ -17,7 +17,7 @@ impl Sphere {
     }
 
     // 入力のrayに対する交差点までの距離を得る。
-    // 交差したらtrue,さもなくばfalseを返す。
+    // 交差したらその情報を,さもなくばNoneを返す。
     pub fn intersect(&self, ray: &Ray) -> Option<Hitpoint> {
         // 自己交差の判定用定数。
         const K_EPS: f64 = 1e-6_f64;
@@ -39,20 +39,19 @@ impl Sphere {
             return None
         }
 
-        let mut hitpoint = Hitpoint::new();
-
         // 交差するときは二点以上で交差する。（接する場合は一点）
         // 近い方を交差点とする。また、負値の場合はレイの逆方向で交差してるため交差していないとする。
-        if &t1 > &K_EPS {
-            hitpoint.distance = t1
+        let t = if &t1 > &K_EPS {
+            t1
         } else {
-            hitpoint.distance = t2
-        }
+            t2
+        };
 
-        hitpoint.position = ray.org + &hitpoint.distance * ray.dir;
-        hitpoint.normal = Vec::normalize(&hitpoint.position - &self.position_);
-
-        Some(hitpoint)
+        Some(Hitpoint {
+            distance: t,
+            normal: Vec::normalize(-&self.position_),
+            position: ray.org + t * ray.dir
+        })
     }
 }
 

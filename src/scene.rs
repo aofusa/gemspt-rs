@@ -5,9 +5,8 @@ use sphere::Sphere;
 use material::{Material, LambertianMaterial, PhongMaterial, GlassMaterial, Lightsource};
 use ray::Ray;
 use hitpoint::Hitpoint;
-use std::borrow::Borrow;
 
-pub type Scene = Box<[Box<SceneSphere<Box<Material>>>; 8]>;
+pub type Scene = [Box<SceneSphere<Box<Material>>>; 8];
 type Color = Vec;
 
 pub enum SceneRendering {
@@ -37,7 +36,7 @@ impl<T> SceneSphere<T> {
 }
 
 pub fn generate_scene(mode: SceneRendering) -> Scene {
-    Box::new(match mode {
+    match mode {
         SceneRendering::SceneDiffuseOnly =>
             [
                 Box::new(
@@ -362,7 +361,6 @@ pub fn generate_scene(mode: SceneRendering) -> Scene {
                 ),
             ],
         }
-    )
 }
 
 // シーンとの交差判定関数。
@@ -377,7 +375,7 @@ pub fn intersect_scene<'a>(scene: &'a Scene, ray: &'a Ray) -> (Option<&'a SceneS
         if object.get_sphere().intersect(&ray, &mut tmp_hitpoint) {
             if &tmp_hitpoint.distance < &hitpoint.distance {
                 hitpoint = tmp_hitpoint;
-                now_object = Some((**object).borrow());
+                now_object = Some(object);
             }
         }
     }

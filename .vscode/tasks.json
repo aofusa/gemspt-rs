@@ -13,6 +13,27 @@
                 "isDefault": true
             },
             "problemMatcher": "$rustc",
-        }
+        },
+        {
+            "label": "cargo release build",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "rustc",
+                "--release",
+                "--",
+                "-C",
+                "opt-level=s",
+                "-C",
+                "lto",
+                "-C",
+                "link-args=-Wl,-x,-S"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$rustc",
+        },
     ],
 }

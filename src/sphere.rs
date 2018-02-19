@@ -39,19 +39,20 @@ impl Sphere {
             return None
         }
 
+        let mut hitpoint = Hitpoint::new();
+
         // 交差するときは二点以上で交差する。（接する場合は一点）
         // 近い方を交差点とする。また、負値の場合はレイの逆方向で交差してるため交差していないとする。
-        let t = if &t1 > &K_EPS {
-            t1
+        if &t1 > &K_EPS {
+            hitpoint.distance = t1
         } else {
-            t2
-        };
+            hitpoint.distance = t2
+        }
 
-        Some(Hitpoint {
-            distance: t,
-            normal: Vec::normalize(-&self.position_),
-            position: ray.org + t * ray.dir
-        })
+        hitpoint.position = ray.org + &hitpoint.distance * ray.dir;
+        hitpoint.normal = Vec::normalize(&hitpoint.position - &self.position_);
+
+        Some(hitpoint)
     }
 }
 

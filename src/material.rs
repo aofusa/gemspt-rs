@@ -8,8 +8,36 @@ use sampling::Sampling;
 
 type Color = Vec;
 
+const DELTA: f64 = 1.0;
+
+// Lambertian BRDF
+// 所謂完全拡散面
+pub struct LambertianMaterialSimple { emission: Color, reflectance: Color, }
+
+// Lambertian BRDF
+// 所謂完全拡散面
+// インポータンスサンプリング版。
+pub struct LambertianMaterial { emission: Color, reflectance: Color, }
+
+// 正規化Phong BRDF
+pub struct PhongMaterial { emission: Color, reflectance: Color, n: f64, }
+
+// 理想的なガラス面。
+pub struct GlassMaterial { emission: Color, reflectance: Color, ior: f64, }
+
+// 光源としてふるまうマテリアル
+pub struct Lightsource { emission: Color, reflectance: Color, }
+
 // マテリアルインターフェース
-pub trait Material {
+pub enum Material {
+    LambertianMaterialSimple(LambertianMaterialSimple),
+    LambertianMaterial      (LambertianMaterial),
+    PhongMaterial           (PhongMaterial),
+    GlassMaterial           (GlassMaterial),
+    Lightsource             (Lightsource),
+}
+
+pub trait MaterialTrait {
     fn emission(&self) -> &Color;
     fn reflectance(&self) -> &Color;
 
@@ -19,40 +47,77 @@ pub trait Material {
     fn sample(&self, random: &mut Random, input: &Vec, normal: &Vec, pdf: &mut f64, brdf_value: &mut Color) -> Vec;
 }
 
-// Lambertian BRDF
-// 所謂完全拡散面
-pub struct LambertianMaterialSimple {
-    emission_: Color,
-    reflectance_: Color,
+impl MaterialTrait for Material {
+    fn emission(&self) -> &Color {
+        match self {
+            &Material::LambertianMaterialSimple ( ref material ) => { &material.emission() },
+            &Material::LambertianMaterial       ( ref material ) => { &material.emission() },
+            &Material::PhongMaterial            ( ref material ) => { &material.emission() },
+            &Material::GlassMaterial            ( ref material ) => { &material.emission() },
+            &Material::Lightsource              ( ref material ) => { &material.emission() },
+        }
+    }
+
+    fn reflectance(&self) -> &Color {
+        match self {
+            &Material::LambertianMaterialSimple ( ref material ) => { &material.reflectance() },
+            &Material::LambertianMaterial       ( ref material ) => { &material.reflectance() },
+            &Material::PhongMaterial            ( ref material ) => { &material.reflectance() },
+            &Material::GlassMaterial            ( ref material ) => { &material.reflectance() },
+            &Material::Lightsource              ( ref material ) => { &material.reflectance() },
+        }
+    }
+
+    fn eval(&self, input: &Vec, normal: &Vec, output: &Vec) -> Color {
+        match self {
+            &Material::LambertianMaterialSimple ( ref material ) => { material.eval(input, normal, output) },
+            &Material::LambertianMaterial       ( ref material ) => { material.eval(input, normal, output) },
+            &Material::PhongMaterial            ( ref material ) => { material.eval(input, normal, output) },
+            &Material::GlassMaterial            ( ref material ) => { material.eval(input, normal, output)},
+            &Material::Lightsource              ( ref material ) => { material.eval(input, normal, output) },
+        }
+    }
+
+    fn sample(&self, random: &mut Random, input: &Vec, normal: &Vec,
+        pdf: &mut f64, brdf_value: &mut Color) -> Vec {
+        match self {
+            &Material::LambertianMaterialSimple ( ref material ) => { material.sample(random, input, normal, pdf, brdf_value) },
+            &Material::LambertianMaterial       ( ref material ) => { material.sample(random, input, normal, pdf, brdf_value) },
+            &Material::PhongMaterial            ( ref material ) => { material.sample(random, input, normal, pdf, brdf_value) },
+            &Material::GlassMaterial            ( ref material ) => { material.sample(random, input, normal, pdf, brdf_value) },
+            &Material::Lightsource              ( ref material ) => { material.sample(random, input, normal, pdf, brdf_value) },
+        }
+    }
 }
 
 impl LambertianMaterialSimple {
     pub fn new(reflectance: Color) -> LambertianMaterialSimple {
         LambertianMaterialSimple {
-            emission_: Color { x: 0.0, y: 0.0, z: 0.0 },
-            reflectance_: reflectance,
+            emission: Color { x: 0.0, y: 0.0, z: 0.0 },
+            reflectance: reflectance,
         }
     }
 }
 
-impl Material for LambertianMaterialSimple {
+impl MaterialTrait for LambertianMaterialSimple {
     fn emission(&self) -> &Color {
-        &self.emission_
+        &self.emission
     }
 
     fn reflectance(&self) -> &Color {
-        &self.reflectance_
+        &self.reflectance
     }
     
     // Lambertian BRDFはρ/πになる（ρは反射率）
     fn eval(&self, input: &Vec, normal: &Vec, output: &Vec) -> Color  {
-        &self.reflectance_ / K_PI
+        &self.reflectance / K_PI
     }
 
     // 単純に半球一様サンプリングする。
     fn sample(
         &self, random: &mut Random, input: &Vec, normal: &Vec,
         pdf: &mut f64, brdf_value: &mut Color) -> Vec {
+
         let mut binormal: Vec = Vec { x: 0.0, y: 0.0, z: 0.0 };
         let mut tangent: Vec = Vec { x: 0.0, y: 0.0, z: 0.0 };
         let now_normal: &Vec = normal;
@@ -60,53 +125,41 @@ impl Material for LambertianMaterialSimple {
         create_ortho_normal_basis(now_normal, &mut tangent, &mut binormal);
         let dir: Vec = Sampling::uniform_hemisphere_surface(random, now_normal, &mut tangent, &mut binormal);
 
-        // pdf: 1/(2 * pi)
-        // if pdf != null {
-            *pdf = 1.0 / (2.0 * K_PI);
-        // }
-        // if (brdf_value != NULL) {
-            *brdf_value = self.eval(input, normal, &dir);
-        // }
+        *pdf = 1.0 / (2.0 * K_PI);
+        *brdf_value = self.eval(input, normal, &dir);
 
         dir
     }
 }
 
-// Lambertian BRDF
-// 所謂完全拡散面
-// インポータンスサンプリング版。
-pub struct LambertianMaterial {
-    emission_: Color,
-    reflectance_: Color,
-}
-
 impl LambertianMaterial {
     pub fn new(reflectance: Color) -> LambertianMaterial {
         LambertianMaterial {
-            emission_: Color { x: 0.0, y: 0.0, z: 0.0 },
-            reflectance_: reflectance,
+            emission: Color { x: 0.0, y: 0.0, z: 0.0 },
+            reflectance: reflectance,
         }
     }
 }
 
-impl Material for LambertianMaterial {
+impl MaterialTrait for LambertianMaterial {
     fn emission(&self) -> &Color {
-        &self.emission_
+        &self.emission
     }
 
     fn reflectance(&self) -> &Color {
-        &self.reflectance_
+        &self.reflectance
     }
     
     // Lambertian BRDFはρ/πになる（ρは反射率）
     fn eval(&self, input: &Vec, normal: &Vec, output: &Vec) -> Color  {
-        &self.reflectance_ / K_PI
+        &self.reflectance / K_PI
     }
 
     // pdfとしてcosΘ/piを使用してインポータンスサンプリングする。
     fn sample(
         &self, random: &mut Random, input: &Vec, normal: &Vec,
         pdf: &mut f64, brdf_value: &mut Color) -> Vec {
+
         let mut binormal: Vec = Vec { x: 0.0, y: 0.0, z: 0.0 };
         let mut tangent: Vec = Vec { x: 0.0, y: 0.0, z: 0.0 };
         let now_normal: &Vec = normal;
@@ -114,42 +167,30 @@ impl Material for LambertianMaterial {
         create_ortho_normal_basis(now_normal, &mut tangent, &mut binormal);
         let dir: Vec = Sampling::cosine_weighted_hemisphere_surface(random, now_normal, &mut tangent, &mut binormal);
 
-        // pdf: 1/(2 * pi)
-        // if pdf != null {
-            *pdf = Vec::dot(normal, &dir) / K_PI;
-        // }
-        // if (brdf_value != NULL) {
-            *brdf_value = self.eval(input, normal, &dir);
-        // }
+        *pdf = Vec::dot(normal, &dir) / K_PI;
+        *brdf_value = self.eval(input, normal, &dir);
 
         dir
     }
 }
 
-// 正規化Phong BRDF
-pub struct PhongMaterial {
-    emission_: Color,
-    reflectance_: Color,
-    n_: f64,
-}
-
 impl PhongMaterial {
     pub fn new(reflectance: Color, n: f64) -> PhongMaterial {
         PhongMaterial {
-            emission_: Color { x: 0.0, y: 0.0, z: 0.0 },
-            reflectance_: reflectance,
-            n_: n,
+            emission: Color { x: 0.0, y: 0.0, z: 0.0 },
+            reflectance: reflectance,
+            n: n,
         }
     }
 }
 
-impl Material for PhongMaterial {
+impl MaterialTrait for PhongMaterial {
     fn emission(&self) -> &Color {
-        &self.emission_
+        &self.emission
     }
 
     fn reflectance(&self) -> &Color {
-        &self.reflectance_
+        &self.reflectance
     }
     
     // 正規化Phong
@@ -165,13 +206,14 @@ impl Material for PhongMaterial {
             cosa = 0.0;
         }
 
-        &self.reflectance_ * (&self.n_ + 2.0) / (2.0 * K_PI) * cosa.powf(self.n_)
+        &self.reflectance * (&self.n+ 2.0) / (2.0 * K_PI) * cosa.powf(self.n)
     }
 
     // BRDF形状をpdfとして使ってインポータンスサンプリングする。
     fn sample(
         &self, random: &mut Random, input: &Vec, normal: &Vec,
         pdf: &mut f64, brdf_value: &mut Color) -> Vec {
+
         let dir: Vec;
         let reflection_dir: Vec = Vec::reflect(input, normal);
         let mut binormal: Vec = Vec { x: 0.0, y: 0.0, z: 0.0 };
@@ -182,52 +224,38 @@ impl Material for PhongMaterial {
         let u2: f64 = random.next01();
 
         let phi: f64 = &u1 * 2.0 * &K_PI;
-        let theta = &u2.powf(1.0 / (&self.n_ + 1.0)).acos();
+        let theta = &u2.powf(1.0 / (&self.n + 1.0)).acos();
 
         dir = tangent * theta.sin() * phi.cos() + &reflection_dir * theta.cos() + binormal * theta.sin() * phi.sin();
 
-        {
-            let mut cosa: f64 = Vec::dot(&reflection_dir, &dir);
-            if &cosa < &0.0 {
-                cosa = 0.0;
-            }
-            *pdf = (&self.n_ + 1.0) / (2.0 * K_PI) * &cosa.powf(self.n_);
+        let mut cosa: f64 = Vec::dot(&reflection_dir, &dir);
+        if &cosa < &0.0 {
+            cosa = 0.0;
         }
-
-        {
-            *brdf_value = self.eval(input, normal, &dir);
-        }
+        *pdf = (&self.n + 1.0) / (2.0 * K_PI) * &cosa.powf(self.n);
+        *brdf_value = self.eval(input, normal, &dir);
 
         dir
     }
 }
 
-// 理想的なガラス面。
-const DELTA: f64 = 1.0;
-
-pub struct GlassMaterial {
-    emission_: Color,
-    reflectance_: Color,
-    ior_: f64,
-}
-
 impl GlassMaterial {
     pub fn new(reflectance: Color, ior: f64) -> GlassMaterial {
         GlassMaterial {
-            emission_: Color { x: 0.0, y: 0.0, z: 0.0 },
-            reflectance_: reflectance,
-            ior_: ior,
+            emission: Color { x: 0.0, y: 0.0, z: 0.0 },
+            reflectance: reflectance,
+            ior: ior,
         }
     }
 }
 
-impl Material for GlassMaterial {
+impl MaterialTrait for GlassMaterial {
     fn emission(&self) -> &Color {
-        &self.emission_
+        &self.emission
     }
 
     fn reflectance(&self) -> &Color {
-        &self.reflectance_
+        &self.reflectance
     }
     
     // 理想的なガラス面におけるBRDFはディラックのδ関数を使ってδ/cosΘとなる。
@@ -236,7 +264,7 @@ impl Material for GlassMaterial {
     // in, outはカメラ側から追跡したときの入出方向なので、光の入射方向はoutになるため、cosθは法線とoutの内積になる。
     // 反射率や透過率（Fr,Ft）は含まれていないことに注意！
     fn eval(&self, input: &Vec, normal: &Vec, output: &Vec) -> Color  {
-        &self.reflectance_ * &DELTA / Vec::dot(normal, output)
+        &self.reflectance * &DELTA / Vec::dot(normal, output)
     }
 
     fn sample(
@@ -251,7 +279,7 @@ impl Material for GlassMaterial {
              }; // 交差位置の法線（物体からのレイの入出を考慮。
         let into: bool = Vec::dot(normal, &now_normal) > 0.0; // レイがオブジェクトから出るのか、入るのか。
         let n1: f64 = 1.0; // 真空の屈折率
-        let n2: &f64 = &self.ior_; // オブジェクトの屈折率
+        let n2: &f64 = &self.ior; // オブジェクトの屈折率
         let n: f64 = if into {
                 n1 / n2
              } else {
@@ -265,16 +293,11 @@ impl Material for GlassMaterial {
         // 全反射
         let reflection_dir: Vec = Vec::reflect(input, &now_normal);
         if &cos2t_2 < &0.0 {
-            // if (pdf != NULL) {
-            {
-                // pdfはディラックのδ関数なので実数値にはならないが、将来的にモンテカルロ積分において、
-                // 分母と分子の両方にδが表れるため結局打ち消し合うため、1でよい。あくまでδであること忘れないためにDELTAを入れておくが、実態は1。
-                *pdf = DELTA;
-            }
-            // if (brdf_value != NULL) {
-            {
-                *brdf_value = self.eval(input, normal, &reflection_dir);
-            }
+            // pdfはディラックのδ関数なので実数値にはならないが、将来的にモンテカルロ積分において、
+            // 分母と分子の両方にδが表れるため結局打ち消し合うため、1でよい。あくまでδであること忘れないためにDELTAを入れておくが、実態は1。
+            *pdf = DELTA;
+            *brdf_value = self.eval(input, normal, &reflection_dir);
+
             return reflection_dir
         }
 
@@ -299,43 +322,26 @@ impl Material for GlassMaterial {
         // ロシアンルーレットの確率は反射率ということしておく。
         let probability: f64 = fr;
         if &random.next01() < &probability { // 反射
-            // if (pdf != NULL) {
-            {
-                // pdfはディラックのδ関数なので実数値にはならないが、将来的にモンテカルロ積分において、
-                // 分母と分子の両方にδが表れるため結局打ち消し合うため、1でよい。あくまでδであること忘れないためにDELTAを入れておくが、実態は1。
-                *pdf = DELTA * &probability;
-            }
-            // if (brdf_value != NULL) {
-            {
-                *brdf_value = &fr * self.eval(input, normal, &reflection_dir);
-            }
+            // pdfはディラックのδ関数なので実数値にはならないが、将来的にモンテカルロ積分において、
+            // 分母と分子の両方にδが表れるため結局打ち消し合うため、1でよい。あくまでδであること忘れないためにDELTAを入れておくが、実態は1。
+            *pdf = DELTA * &probability;
+            *brdf_value = &fr * self.eval(input, normal, &reflection_dir);
+
             return reflection_dir;
         } else { // 屈折
-            // if (pdf != NULL) {
-            {
-                *pdf = DELTA * (&1.0 - &probability);
-            }
-            // if (brdf_value != NULL) {
-            {
-                *brdf_value = &ft * self.eval(input, normal, &reflection_dir);
-            }
+            *pdf = DELTA * (&1.0 - &probability);
+            *brdf_value = &ft * self.eval(input, normal, &reflection_dir);
 
             refraction_dir
         }
     }
 }
 
-// 光源としてふるまうマテリアル
-pub struct Lightsource {
-    emission_: Color,
-    reflectance_: Color,
-}
-
 impl Lightsource {
-    pub fn new(emission: Color) -> LambertianMaterialSimple {
-        LambertianMaterialSimple {
-            emission_: emission,
-            reflectance_: Color { x: 0.0, y: 0.0, z: 0.0 },
+    pub fn new(emission: Color) -> Lightsource {
+        Lightsource {
+            emission: emission,
+            reflectance: Color { x: 0.0, y: 0.0, z: 0.0 },
         }
     }
 
@@ -345,13 +351,13 @@ impl Lightsource {
     }
 }
 
-impl Material for Lightsource {
+impl MaterialTrait for Lightsource {
     fn emission(&self) -> &Color {
-        &self.emission_
+        &self.emission
     }
 
     fn reflectance(&self) -> &Color {
-        &self.reflectance_
+        &self.reflectance
     }
 
     fn eval(&self, input: &Vec, normal: &Vec, output: &Vec) -> Color {

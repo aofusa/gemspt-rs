@@ -86,3 +86,4 @@ pub fn render(
     // 出力
     save_ppm_file(filename, &image, width, height);
 }
+

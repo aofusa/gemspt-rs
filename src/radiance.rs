@@ -3,6 +3,7 @@
 use ray::Ray;
 use scene::{Scene, intersect_scene};
 use random::Random;
+use material::MaterialTrait;
 
 use vec::{Vec, Dot, Multiply};
 

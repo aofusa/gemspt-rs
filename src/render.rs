@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_variables)]
 
 use std;
+use std::sync::{Arc, Mutex};
 
 use rayon::prelude::*;
 
@@ -47,11 +48,25 @@ pub fn render(
     println!("{}x{} {} spp", width, height, num_sample_per_subpixel * (num_subpixel * num_subpixel));
 
     // Rayonを使った並列処理
+    // 実装するために下の逐次処理版と一部ロジックが変わってしまった
+    // 1. for 文から for_each メソッドへの変更
+    // 2. 1.に伴う 二重ループの除去
+    // 3. 1.に伴う image 配列へのアクセスロジックの変更
+    // 4. 進捗表示処理の追加と表示回数抑制のための if 文の追加
     if is_parallel {
+        let count = Arc::new(Mutex::new(0));
         image.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+            // 進捗表示
+            {
+                let mut count = count.lock().unwrap();
+                *count += 1;
+                let count = *count;
+                if count % width == 0 {
+                    eprint!("\rRendering (y= {}, {} %)\x1b[0K", count / width as i32, 100.0 * count as f64 / (width * height) as f64);
+                }
+            }
             let y = i as i32 / width;
             let x = i as i32 - y * width;
-            eprint!("\rRendering (y= {}, {} %)\x1b[0K", y, 100.0 * y as f64 / (height - 1) as f64);
             let mut random = Random::new((y * width + x + 1) as u64);
             let image_index = height - y - 1;
             // num_subpixel x num_subpixel のスーパーサンプリング。
@@ -82,12 +97,9 @@ pub fn render(
         });
         eprintln!("");
     }
-    // シングルスレッドでの逐次処理
+    // 逐次処理
     else {
-        // let mut lock = io::stderr();
-        // let mut buf = io::BufWriter::new(lock.lock());
         for y in 0..height {
-            // writeln!(buf, "Rendering (y= {}, {} %) /r", y, 100.0 * y as f64 / (height - 1) as f64);
             eprint!("\rRendering (y= {}, {} %)\x1b[0K", y, 100.0 * y as f64 / (height - 1) as f64);
             for x in 0..width {
                 let mut random = Random::new((y * width + x + 1) as u64);

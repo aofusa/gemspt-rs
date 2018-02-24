@@ -1,3 +1,5 @@
+extern crate rayon;
+
 mod constant;
 mod vec;
 mod hitpoint;
@@ -22,10 +24,11 @@ fn main() {
     render(
         &scene,
         "image.ppm", // 保存ファイル名
-        640, 480, // 解像度
-        1, // サブピクセルごとのサンプリング数
-        4, // サブピクセルの縦横解像度
-        8); // スレッド数
+        640, 480,    // 解像度
+        2,           // サブピクセルごとのサンプリング数
+        16,          // サブピクセルの縦横解像度
+        true);       // 並列処理の有効化
 
     println!("Done.");
 }
+

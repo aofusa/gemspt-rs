@@ -2,6 +2,8 @@
 
 use std;
 
+use rayon::prelude::*;
+
 use radiance::radiance;
 use ppm::save_ppm_file;
 use random::Random;
@@ -23,7 +25,7 @@ macro_rules! clone_value {
 pub fn render(
     scene: &Scene, filename: &str, width: i32, height: i32,
     num_sample_per_subpixel: i32, num_subpixel: i32,
-    num_thread: i32) {
+    is_parallel: bool) {
 
     // カメラ位置。
     let camera_position = Vec { x: 7.0, y: 3.0, z: 7.0 };
@@ -44,12 +46,49 @@ pub fn render(
     let mut image = clone_value![Vec { x: 0.0, y: 0.0, z: 0.0 }, (width * height) as u64];
     println!("{}x{} {} spp", width, height, num_sample_per_subpixel * (num_subpixel * num_subpixel));
 
-    {
+    // Rayonを使った並列処理
+    if is_parallel {
+        image.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+            let y = i as i32 / width;
+            let x = i as i32 - y * width;
+            eprint!("\rRendering (y= {}, {} %)\x1b[0K", y, 100.0 * y as f64 / (height - 1) as f64);
+            let mut random = Random::new((y * width + x + 1) as u64);
+            let image_index = height - y - 1;
+            // num_subpixel x num_subpixel のスーパーサンプリング。
+            for sy in 0..num_subpixel {
+                for sx in 0..num_subpixel {
+                    let mut accumulated_radiance = Vec { x: 0.0, y: 0.0, z: 0.0 };
+                    // let accumulated_radiance: Vec;
+                    // 一つのサブピクセルあたりsamples回サンプリングする。
+                    for _s in 0..num_sample_per_subpixel {
+                        let rate = 1.0 / num_subpixel as f64;
+                        let r1 = sx as f64 * rate + rate / 2.0;
+                        let r2 = sy as f64 * rate + rate / 2.0;
+                        // イメージセンサー上の位置。
+                        let position_on_sensor =
+                            &sensor_center +
+                            &sensor_x_vec * ((r1 + x as f64) / width as f64 - 0.5) +
+                            &sensor_y_vec * ((r2 + image_index as f64) / height as f64 - 0.5);
+                        // レイを飛ばす方向。
+                        let dir = Vec::normalize(&position_on_sensor - &camera_position);
+
+                        accumulated_radiance = accumulated_radiance +
+                            radiance(scene, &Ray::new(&camera_position, &dir), &mut random, &0)
+                            / num_sample_per_subpixel as f64 / (num_subpixel * num_subpixel) as f64;
+                    }
+                    *pixel = &*pixel + accumulated_radiance;
+                }
+            }
+        });
+        eprintln!("");
+    }
+    // シングルスレッドでの逐次処理
+    else {
         // let mut lock = io::stderr();
         // let mut buf = io::BufWriter::new(lock.lock());
         for y in 0..height {
             // writeln!(buf, "Rendering (y= {}, {} %) /r", y, 100.0 * y as f64 / (height - 1) as f64);
-            println!("Rendering (y= {}, {} %) /r", y, 100.0 * y as f64 / (height - 1) as f64);
+            eprint!("\rRendering (y= {}, {} %)\x1b[0K", y, 100.0 * y as f64 / (height - 1) as f64);
             for x in 0..width {
                 let mut random = Random::new((y * width + x + 1) as u64);
                 let image_index = ((height - y - 1) * width + x) as usize;

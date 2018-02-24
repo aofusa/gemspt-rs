@@ -7,6 +7,7 @@ Simple path tracing implementation for CGGems in Rust
 cargo build
 cargo run
 
-## How to release build
+## How to release build and run
 cargo rustc --release -- -C opt-level=s -C lto -C link-args=-Wl,-x,-S
+target/release/gemspt-rs
 
